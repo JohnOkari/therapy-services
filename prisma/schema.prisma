@@ -1,5 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Therapy Platform Database Schema
+// Comprehensive relational database design for therapy platform
 
 generator client {
   provider = "prisma-client-js"
@@ -10,66 +10,264 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Example models - customize based on your therapy platform needs
+// Core user management
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  role      Role     @default(CLIENT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CLIENT)
+  fullName     String
+  phone        String?
+  timezone     String   @default("UTC")
+  createdAt    DateTime @default(now())
+  verified     Boolean  @default(false)
 
   // Relations
-  sessionsAsTherapist Session[] @relation("TherapistSessions")
-  sessionsAsClient    Session[] @relation("ClientSessions")
-  messages            Message[]
+  therapistProfile TherapistProfile?
+  availabilities   Availability[]
+  bookingsAsClient Booking[] @relation("ClientBookings")
+  bookingsAsTherapist Booking[] @relation("TherapistBookings")
+  payments         Payment[]
+  messages         Message[]
+  notes            Note[]
+  auditLogs        AuditLog[]
+  reviews          Review[]
 
   @@map("users")
+  @@index([email])
+  @@index([role])
+  @@index([createdAt])
 }
 
-model Session {
-  id          String      @id @default(cuid())
-  title       String
-  description String?
-  status      SessionStatus @default(SCHEDULED)
-  startTime   DateTime
-  endTime     DateTime
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+// Therapist-specific information
+model TherapistProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  bio          String?
+  qualifications String[]
+  licenses     String[]
+  specialties  String[]
+  languages    String[]
+  location     String?
+  ratingAvg    Float    @default(0)
+  images       String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
-  therapistId String
-  therapist   User   @relation("TherapistSessions", fields: [therapistId], references: [id])
-  clientId    String
-  client      User   @relation("ClientSessions", fields: [clientId], references: [id])
-  messages    Message[]
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilities Availability[]
+  bookings     Booking[]
+  notes        Note[]
 
-  @@map("sessions")
+  @@map("therapist_profiles")
+  @@index([ratingAvg])
+  @@index([location])
 }
 
+// Therapist availability slots
+model Availability {
+  id            String   @id @default(cuid())
+  therapistId   String
+  startTs       DateTime
+  endTs         DateTime
+  recurringRule String?
+  isBooked      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  // Relations
+  therapist     User      @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  bookings      Booking[]
+
+  @@map("availabilities")
+  @@index([therapistId, startTs])
+}
+
+// Session bookings
+model Booking {
+  id                   String        @id @default(cuid())
+  clientId             String
+  therapistId          String
+  startTs              DateTime
+  endTs                DateTime
+  status               BookingStatus @default(PENDING)
+  priceCents           Int
+  currency             String        @default("USD")
+  paymentId            String?
+  cancellationPolicyId String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  // Relations
+  client               User              @relation("ClientBookings", fields: [clientId], references: [id])
+  therapist            User              @relation("TherapistBookings", fields: [therapistId], references: [id])
+  therapistProfile     TherapistProfile  @relation(fields: [therapistId], references: [userId])
+  availability         Availability?     @relation(fields: [availabilityId], references: [id])
+  availabilityId       String?
+  payment              Payment?
+  sessionRecord        SessionRecord?
+  cancellationPolicy   CancellationPolicy? @relation(fields: [cancellationPolicyId], references: [id])
+  review               Review?
+
+  @@map("bookings")
+  @@index([clientId, startTs])
+  @@index([therapistId, startTs])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Payment processing
+model Payment {
+  id               String        @id @default(cuid())
+  bookingId        String        @unique
+  provider         String        // stripe, paypal, etc.
+  providerChargeId String?
+  amountCents      Int
+  status           PaymentStatus @default(PENDING)
+  refundedAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  booking          Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User          @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+  @@index([providerChargeId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Session execution records
+model SessionRecord {
+  id           String      @id @default(cuid())
+  bookingId    String      @unique
+  sessionType  SessionType @default(VIDEO)
+  joinUrl      String?
+  recordingUrl String?
+  startedAt    DateTime?
+  endedAt      DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relations
+  booking      Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("session_records")
+}
+
+// Messaging system
 model Message {
-  id        String   @id @default(cuid())
-  content   String
-  sentAt    DateTime @default(now())
-  
+  id              String   @id @default(cuid())
+  conversationId  String
+  senderId        String
+  contentEncrypted String
+  createdAt       DateTime @default(now())
+
   // Relations
-  sessionId String
-  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User    @relation(fields: [userId], references: [id])
+  sender          User     @relation(fields: [senderId], references: [id])
 
   @@map("messages")
+  @@index([conversationId, createdAt])
 }
 
+// Therapist notes
+model Note {
+  id              String      @id @default(cuid())
+  therapistId     String
+  bookingId       String
+  contentEncrypted String
+  accessLevel     AccessLevel @default(PRIVATE)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  therapist       User              @relation(fields: [therapistId], references: [id])
+  therapistProfile TherapistProfile @relation(fields: [therapistId], references: [userId])
+
+  @@map("notes")
+  @@index([therapistId, bookingId])
+}
+
+// Cancellation policies
+model CancellationPolicy {
+  id            String @id @default(cuid())
+  name          String
+  refundPercent Int    // 0-100
+  cutoffHours   Int    // hours before session
+  createdAt     DateTime @default(now())
+
+  // Relations
+  bookings      Booking[]
+
+  @@map("cancellation_policies")
+}
+
+// Audit logging
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}
+
+// Client reviews
+model Review {
+  id        String   @id @default(cuid())
+  bookingId String   @unique
+  clientId  String
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  client    User     @relation(fields: [clientId], references: [id])
+
+  @@map("reviews")
+  @@index([clientId, createdAt])
+}
+
+// Enums
 enum Role {
   CLIENT
   THERAPIST
   ADMIN
 }
 
-enum SessionStatus {
-  SCHEDULED
-  IN_PROGRESS
+enum BookingStatus {
+  PENDING
+  CONFIRMED
   COMPLETED
   CANCELLED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum SessionType {
+  VIDEO
+  IN_PERSON
+  PHONE
+}
+
+enum AccessLevel {
+  PRIVATE
+  SHARED
+  CLIENT_ACCESSIBLE
 }
