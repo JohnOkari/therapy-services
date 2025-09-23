@@ -76,7 +76,8 @@ model Availability {
   createdAt     DateTime @default(now())
 
   // Relations
-  therapist     User      @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  therapist     User              @relation(fields: [therapistId], references: [id], onDelete: Cascade, map: "availability_user_fkey")
+  therapistProfile TherapistProfile @relation(fields: [therapistId], references: [userId], onDelete: Cascade, map: "availability_therapist_profile_fkey")
   bookings      Booking[]
 
   @@map("availabilities")
@@ -99,9 +100,9 @@ model Booking {
   updatedAt            DateTime      @updatedAt
 
   // Relations
-  client               User              @relation("ClientBookings", fields: [clientId], references: [id])
-  therapist            User              @relation("TherapistBookings", fields: [therapistId], references: [id])
-  therapistProfile     TherapistProfile  @relation(fields: [therapistId], references: [userId])
+  client               User              @relation("ClientBookings", fields: [clientId], references: [id], map: "booking_client_fkey")
+  therapist            User              @relation("TherapistBookings", fields: [therapistId], references: [id], map: "booking_therapist_fkey")
+  therapistProfile     TherapistProfile  @relation(fields: [therapistId], references: [userId], map: "booking_therapist_profile_fkey")
   availability         Availability?     @relation(fields: [availabilityId], references: [id])
   availabilityId       String?
   payment              Payment?
@@ -183,8 +184,8 @@ model Note {
   updatedAt       DateTime    @updatedAt
 
   // Relations
-  therapist       User              @relation(fields: [therapistId], references: [id])
-  therapistProfile TherapistProfile @relation(fields: [therapistId], references: [userId])
+  therapist       User              @relation(fields: [therapistId], references: [id], map: "note_therapist_fkey")
+  therapistProfile TherapistProfile @relation(fields: [therapistId], references: [userId], map: "note_therapist_profile_fkey")
 
   @@map("notes")
   @@index([therapistId, bookingId])

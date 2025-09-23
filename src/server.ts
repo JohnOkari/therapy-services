@@ -23,10 +23,11 @@ app.get('/health', (req, res) => {
   })
 })
 
-// Routes will be imported here
-// app.use('/api/auth', authRoutes)
-// app.use('/api/users', userRoutes)
-// app.use('/api/sessions', sessionRoutes)
+// Routes
+import { authRoutes, therapistRoutes } from './routes'
+
+app.use('/api/auth', authRoutes)
+app.use('/api/therapists', therapistRoutes)
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
