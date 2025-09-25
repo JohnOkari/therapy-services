@@ -3,3 +3,4 @@
 
 export { authRoutes } from './auth'
 export { therapistRoutes } from './therapists'
+export { bookingRoutes } from './bookings'

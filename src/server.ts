@@ -24,10 +24,11 @@ app.get('/health', (req, res) => {
 })
 
 // Routes
-import { authRoutes, therapistRoutes } from './routes'
+import { authRoutes, therapistRoutes, bookingRoutes } from './routes'
 
 app.use('/api/auth', authRoutes)
 app.use('/api/therapists', therapistRoutes)
+app.use('/api/bookings', bookingRoutes)
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

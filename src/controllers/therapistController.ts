@@ -159,7 +159,7 @@ export class TherapistController {
   static async getTherapistAvailability(req: Request, res: Response) {
     try {
       const { id } = req.params
-      const { startDate, endDate } = req.query
+      const { from, to } = req.query as { from?: string; to?: string }
       
       if (!id) {
         return res.status(400).json({
@@ -169,8 +169,8 @@ export class TherapistController {
       
       const availability = await TherapistService.getTherapistAvailability(
         id,
-        startDate ? new Date(startDate as string) : undefined,
-        endDate ? new Date(endDate as string) : undefined
+        from ? new Date(from) : undefined,
+        to ? new Date(to) : undefined
       )
       
       res.json({
